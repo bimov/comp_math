@@ -39,6 +39,6 @@ python3 main.py --ticker AAPL --start 2017-01-01 --end 2019-12-31   --maturity 2
 После запуска в папке `out/` сохраняются:
 - `price_series.png` — график динамики цены актива  
 - `bs_surface_3d.png` — 3D-поверхность цены опциона C(S, t)  
-- `bs_surface_heatmap.png` — тепловая карта C(S, t)  
+- `bs_surface_heatmap.png` — тепловая карта C(S, t)  (Можно сказать, что тепловая карта это проекция 3D-поверхности C(S, t) на плоскость
 - `bs_surface.csv` — табличные данные рассчитанной поверхности  
 ___
