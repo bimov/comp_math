@@ -41,7 +41,4 @@ python3 main.py --ticker AAPL --start 2017-01-01 --end 2019-12-31   --maturity 2
 - `bs_surface_3d.png` — 3D-поверхность цены опциона C(S, t)  
 - `bs_surface_heatmap.png` — тепловая карта C(S, t)  
 - `bs_surface.csv` — табличные данные рассчитанной поверхности  
-d_- = d_+ - \sigma\sqrt{T-t}
-\]
-
----
+___
