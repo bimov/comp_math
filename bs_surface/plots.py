@@ -22,27 +22,28 @@ def _pivot_surface(surface: pd.DataFrame):
     """
     Функция строит сводную таблицу, чтобы получить матрицу значений C(S,t).
     """
-    pivot = surface.pivot(index="date", columns="S", values="C")
+    value_col = _choose_value_column(surface)
+    pivot = surface.pivot(index="date", columns="S", values=value_col)
     pivot = pivot.sort_index().sort_index(axis=1)
     Z = pivot.to_numpy()
     S_vals = pivot.columns.to_numpy(dtype=float)
     dates = list(pivot.index)
-    return S_vals, dates, Z
+    return S_vals, dates, Z, value_col
 
 
 def plot_surface_3d(surface: pd.DataFrame, out_path: str) -> None:
     """
     Построить и сохранить 3D-поверхность C(S,t).
     """
-    S_vals, dates, Z = _pivot_surface(surface)
+    S_vals, dates, Z, value_col = _pivot_surface(surface)
     X, Y = np.meshgrid(S_vals, np.arange(len(dates)))
     fig = plt.figure(figsize=(10, 6))
     ax = fig.add_subplot(111, projection="3d")
     ax.plot_surface(X, Y, Z, linewidth=0, antialiased=True)
     ax.set_xlabel("S (price)")
     ax.set_ylabel("t index (earlier → later)")
-    ax.set_zlabel("C(S,t)")
-    ax.set_title("Black–Scholes surface C(S,t)")
+    ax.set_zlabel(f"{value_col}(S,t)")
+    ax.set_title(f"Option surface {value_col}(S,t)")
     plt.tight_layout()
     plt.savefig(out_path, dpi=170)
     plt.close()
@@ -53,10 +54,10 @@ def plot_heatmap(surface: pd.DataFrame, out_path: str) -> None:
     Построить «тепловую карту» C(S,t) и сохранить в файл.
     Цвет соответствует уровню цены опциона C. Оси подписаны значениями S и датами.
     """
-    S_vals, dates, Z = _pivot_surface(surface)
+    S_vals, dates, Z, value_col = _pivot_surface(surface)
     plt.figure(figsize=(10, 6))
     plt.imshow(Z, aspect="auto", origin="lower")
-    plt.colorbar(label="C(S,t)")
+    plt.colorbar(label=f"{value_col}(S,t)")
     yticks = np.linspace(0, len(dates) - 1, num=min(10, len(dates))).astype(int)
     xticks = np.linspace(0, len(S_vals) - 1, num=min(10, len(S_vals))).astype(int)
     plt.yticks(ticks=yticks, labels=[str(dates[i]) for i in yticks])
@@ -68,7 +69,14 @@ def plot_heatmap(surface: pd.DataFrame, out_path: str) -> None:
     )
     plt.xlabel("S grid")
     plt.ylabel("t (dates)")
-    plt.title("Black–Scholes surface (heatmap)")
+    plt.title(f"Option surface {value_col} (heatmap)")
     plt.tight_layout()
     plt.savefig(out_path, dpi=170)
     plt.close()
+
+
+def _choose_value_column(surface: pd.DataFrame) -> str:
+    for col in ("C_model", "C_bs", "C"):
+        if col in surface.columns:
+            return col
+    raise KeyError("Не найдено колонок с ценой опциона")
