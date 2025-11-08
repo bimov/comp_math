@@ -1,1 +1,1 @@
-__all__ = ["pricing", "data_io", "grid", "plots"]
+__all__ = ["pricing", "data_io", "grid", "plots", "dupire"]
