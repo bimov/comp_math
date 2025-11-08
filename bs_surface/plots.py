@@ -42,8 +42,8 @@ def plot_surface_3d(surface: pd.DataFrame, out_path: str) -> None:
     ax.plot_surface(X, Y, Z, linewidth=0, antialiased=True)
     ax.set_xlabel("S (price)")
     ax.set_zlabel(f"{value_col}(S,t)")
-    ax.set_title(f"Option surface {value_col}(S,t)")
-    ax.set_title("Black–Scholes surface C(S,t)")
+    ax.set_zlabel(f"{value_col}(S,t)")
+    ax.set_title(_surface_title(value_col, suffix="(S,t)"))
     plt.tight_layout()
     plt.savefig(out_path, dpi=170)
     plt.close()
@@ -69,7 +69,7 @@ def plot_heatmap(surface: pd.DataFrame, out_path: str) -> None:
     )
     plt.xlabel("S grid")
     plt.ylabel("t (dates)")
-    plt.title(f"Option surface {value_col} (heatmap)")
+    plt.title(_surface_title(value_col, suffix="(heatmap)"))
     plt.tight_layout()
     plt.savefig(out_path, dpi=170)
     plt.close()
@@ -80,3 +80,13 @@ def _choose_value_column(surface: pd.DataFrame) -> str:
         if col in surface.columns:
             return col
     raise KeyError("Не найдено колонок с ценой опциона")
+
+
+def _surface_title(value_col: str, suffix: str) -> str:
+    name_map = {
+        "C_model": "Crank–Nicolson surface",
+        "C_bs": "Black–Scholes surface",
+        "C": "Option surface",
+    }
+    prefix = name_map.get(value_col, "Option surface")
+    return f"{prefix} {value_col} {suffix}"
