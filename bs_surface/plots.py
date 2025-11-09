@@ -2,7 +2,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
 
 def plot_price_series(df: pd.DataFrame, out_path: str) -> None:
     """
@@ -41,7 +42,7 @@ def plot_surface_3d(surface: pd.DataFrame, out_path: str) -> None:
     ax = fig.add_subplot(111, projection="3d")
     ax.plot_surface(X, Y, Z, linewidth=0, antialiased=True)
     ax.set_xlabel("S (price)")
-    ax.set_zlabel(f"{value_col}(S,t)")
+    ax.set_ylabel("time index")
     ax.set_zlabel(f"{value_col}(S,t)")
     ax.set_title(_surface_title(value_col, suffix="(S,t)"))
     plt.tight_layout()
