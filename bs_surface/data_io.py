@@ -16,7 +16,14 @@ def download_quotes(ticker: str, start: str, end: str) -> pd.DataFrame:
     """
     Скачать дневные котировки и оставить только скорректированную цену закрытия.
     """
-    df = yf.download(ticker, start=start, end=end, interval="1d", auto_adjust=True, progress=False)
+    df = yf.download(
+        ticker,
+        start=start,
+        end=end,
+        interval="1d",
+        auto_adjust=True,
+        progress=False,
+    )
     if df.empty:
         raise RuntimeError("Пустые котировки. Проверьте тикер/интернет.")
     df = df[["Close"]].copy()
