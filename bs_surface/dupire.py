@@ -1,4 +1,3 @@
-"""Численное решение уравнения Дюпира методом Крэнка—Николсона."""
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Iterable
@@ -12,6 +11,7 @@ class DupireSolution:
     values: Dict[float, np.ndarray]
 
     def get_values(self, tau: float, tol: float = 1e-10) -> np.ndarray:
+        """Вернуть значения C(S_i, tau)."""
         key = _round_tau(tau)
         if key in self.values:
             return self.values[key]
@@ -21,7 +21,20 @@ class DupireSolution:
         raise KeyError(f"Tau={tau:.6f} отсутствует в рассчитанной сетке")
 
 
-def solve_dupire_crank_nicolson(S_grid: Iterable[float], tau_nodes: Iterable[float], sigma_surface: np.ndarray, r: float, K: float) -> DupireSolution:
+def solve_dupire_crank_nicolson(
+    S_grid: Iterable[float],
+    tau_nodes: Iterable[float],
+    sigma_surface: np.ndarray,
+    r: float,
+    K: float,
+) -> DupireSolution:
+    """
+    Решить уравнение Дюпира на сетке (S, tau) методом Крэнка—Николсона
+    для локальной волатильности sigma(S, tau).
+
+    sigma_surface: массив формы (len(tau_nodes), len(S_grid)),
+    где sigma_surface[n, i] = sigma(S_i, tau_n).
+    """
     S = np.asarray(S_grid, dtype=float)
     if S.ndim != 1 or len(S) < 3:
         raise ValueError("Сетка S должна содержать минимум 3 узла")
@@ -61,8 +74,8 @@ def solve_dupire_crank_nicolson(S_grid: Iterable[float], tau_nodes: Iterable[flo
         if dt <= 0:
             continue
 
-        sigma_prev = sigma_surface[n]
-        sigma_next = sigma_surface[n + 1]
+        sigma_prev = sigma_surface[n]      # shape (N,)
+        sigma_next = sigma_surface[n + 1]  # shape (N,)
 
         V_next = _crank_nicolson_step_localvol(
             V_prev,
@@ -81,7 +94,7 @@ def solve_dupire_crank_nicolson(S_grid: Iterable[float], tau_nodes: Iterable[flo
     return DupireSolution(S_grid=S.copy(), tau_grid=tau.copy(), values=values)
 
 
-def _crank_nicolson_step(
+def _crank_nicolson_step_localvol(
     V_prev: np.ndarray,
     *,
     dt: float,
@@ -93,6 +106,11 @@ def _crank_nicolson_step(
     K: float,
     tau_next: float,
 ) -> np.ndarray:
+    """
+    Один шаг Крэнка–Николсона для локальной волатильности sigma(S, tau).
+
+    (I - 0.5 dt L_next) V_next = (I + 0.5 dt L_prev) V_prev
+    """
     N = len(S)
     tau_curr = tau_next - dt
 
@@ -115,6 +133,7 @@ def _crank_nicolson_step(
         S_i = S[idx]
         i = idx - 1
 
+        # коэффициенты оператора на старом и новом слое
         coeff_prev = sigma2_prev[idx] * (S_i ** 2)
         coeff_next = sigma2_next[idx] * (S_i ** 2)
 
@@ -126,18 +145,21 @@ def _crank_nicolson_step(
         beta_next  = -0.5 * dt * (coeff_next / (dS ** 2) + r)
         gamma_next = 0.25 * dt * (coeff_next / (dS ** 2) + r * S_i / dS)
 
+        # матрица A = (I - 0.5 dt L_next)
         diag[i] = 1.0 - beta_next
         if idx > 1:
             lower[i - 1] = -alpha_next
         if idx < N - 2:
             upper[i] = -gamma_next
 
+        # правая часть: (I + 0.5 dt L_prev) V_prev
         rhs_i = (
             alpha_prev * V_prev_bc[idx - 1]
             + (1.0 + beta_prev) * V_prev_bc[idx]
             + gamma_prev * V_prev_bc[idx + 1]
         )
 
+        # вклад правой границы на новом слое
         if idx == N - 2:
             rhs_i += gamma_next * V_right_next
 
@@ -153,17 +175,20 @@ def _crank_nicolson_step(
 
 
 def _solve_tridiagonal(lower: np.ndarray, diag: np.ndarray, upper: np.ndarray, rhs: np.ndarray) -> np.ndarray:
+    """Метод прогонки для трёхдиагональной системы."""
     n = len(diag)
     d = diag.astype(float).copy()
     a = lower.astype(float).copy()
     c = upper.astype(float).copy()
     b = rhs.astype(float).copy()
 
+    # прямой ход
     for i in range(1, n):
         w = a[i - 1] / d[i - 1]
         d[i] -= w * c[i - 1]
         b[i] -= w * b[i - 1]
 
+    # обратный ход
     x = np.zeros(n, dtype=float)
     x[-1] = b[-1] / d[-1]
     for i in range(n - 2, -1, -1):
