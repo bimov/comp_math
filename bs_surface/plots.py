@@ -97,6 +97,26 @@ def plot_rms(surface: pd.DataFrame, out_path: str) -> None:
     plt.close()
 
 
+def plot_model_vs_market(surface: pd.DataFrame, out_path: str) -> None:
+    required_cols = {"date", "C_model", "C_market"}
+    if not required_cols.issubset(surface.columns):
+        raise KeyError("Surface must contain date, C_model и C_market для сравнения графиков")
+
+    by_date = surface.groupby("date")[["C_model", "C_market"]].mean()
+
+    plt.figure(figsize=(10, 4))
+    by_date["C_model"].plot(marker="o", label="C_model")
+    by_date["C_market"].plot(marker="s", label="C_market")
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.xlabel("Дата")
+    plt.ylabel("Средняя цена опциона")
+    plt.title("Сравнение C_model и C_market")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=170)
+    plt.close()
+
+
 def _choose_value_column(surface: pd.DataFrame) -> str:
     for col in ("C_model", "C_bs", "C"):
         if col in surface.columns:

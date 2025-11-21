@@ -6,15 +6,15 @@ from dataclasses import dataclass
 import os
 from bs_surface.data_io import ensure_out_dir, download_quotes, add_returns_and_vol, choose_strike
 from bs_surface.grid import build_grids, build_surface
-from bs_surface.plots import plot_price_series, plot_surface_3d, plot_heatmap, plot_rms
+from bs_surface.plots import plot_price_series, plot_surface_3d, plot_heatmap, plot_rms, plot_model_vs_market
 
 
 @dataclass
 class Config:
-    ticker: str = "AAPL"
-    start: str = "2017-01-01"
-    end: str = "2019-12-31"
-    maturity: str = "2020-01-31"
+    ticker: str = "KO"
+    start: str = "2021-01-01"
+    end: str = "2024-12-31"
+    maturity: str = "2025-01-31"
     r: float = 0.02
     n_s: int = 60
     n_t: int = 40
@@ -55,6 +55,7 @@ def main(cfg: Config):
     plot_surface_3d(surface, os.path.join(out_dir, "bs_surface_3d.png"))
     plot_heatmap(surface, os.path.join(out_dir, "bs_surface_heatmap.png"))
     plot_rms(surface, os.path.join(out_dir, "calibration_rms.png"))
+    plot_model_vs_market(surface, os.path.join(out_dir, "model_vs_market.png"))
 
     print(f"Готово. Файлы сохранены в: {out_dir}")
     print(f"Страйк K = {K:.4f}, r = {cfg.r:.4f}")
