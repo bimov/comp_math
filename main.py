@@ -54,6 +54,7 @@ def main(cfg: Config):
     plot_price_series(df, os.path.join(out_dir, "price_series.png"))
     plot_surface_3d(surface, os.path.join(out_dir, "bs_surface_3d.png"))
     plot_heatmap(surface, os.path.join(out_dir, "bs_surface_heatmap.png"))
+    plot_rms(surface, os.path.join(out_dir, "calibration_rms.png"))
 
     print(f"Готово. Файлы сохранены в: {out_dir}")
     print(f"Страйк K = {K:.4f}, r = {cfg.r:.4f}")
