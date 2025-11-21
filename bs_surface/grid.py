@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
-from .dupire import solve_dupire_crank_nicolson
+from .dupire import solve_dupire_crank_nicolson, _round_tau
 from .pricing import call_black_scholes
+from .calibration import calibrate_local_volatility
 
 
 def build_grids(df: pd.DataFrame, n_s: int, n_t: int, maturity: str):
@@ -28,47 +29,58 @@ def build_grids(df: pd.DataFrame, n_s: int, n_t: int, maturity: str):
 
 
 def build_surface(S_grid, t_grid, T_date, r, K, sigma_series) -> pd.DataFrame:
-    tau_nodes, sigma_surface = _build_tau_sigma_surface(S_grid, t_grid, T_date, sigma_series)
-
-    dupire_solution = solve_dupire_crank_nicolson(
-        S_grid,
-        tau_nodes=tau_nodes,
-        sigma_surface=sigma_surface,
-        r=r,
-        K=K,
+    tau_nodes, sigma_surface, sigma_curve = _build_tau_sigma_surface(
+        S_grid, t_grid, T_date, sigma_series
     )
+    w_market = sigma_curve ** 2
+    C_market_surface = _build_market_surface(S_grid, tau_nodes, sigma_curve, r=r, K=K)
+
+    calib_result = calibrate_local_volatility(S_grid, tau_nodes=tau_nodes, w_market=w_market, r=r, K=K, initial_sigma=sigma_curve)
+    dupire_solution = solve_dupire_crank_nicolson(S_grid, tau_nodes=tau_nodes, sigma_surface=np.repeat(calib_result.sigma_curve[:, None], len(S_grid), axis=1), r=r, K=K)
+
+    market_map = {_round_tau(t): row for t, row in zip(tau_nodes, C_market_surface)}
+    model_map = {_round_tau(t): dupire_solution.get_values(t) for t in tau_nodes}
+    sigma_map = {_round_tau(t): s for t, s in zip(tau_nodes, calib_result.sigma_curve)}
 
     records = []
     for t in t_grid:
         tau = _time_to_maturity(T_date, t)
-        sigma_t = float(sigma_series.loc[:t].iloc[-1])
-        sigma_t = max(sigma_t, 1e-8)
+        tau_key = _round_tau(tau)
 
-        C_bs_vals = call_black_scholes(S_grid, K=K, r=r, sigma=sigma_t, tau=tau)
-        C_cn_vals = dupire_solution.get_values(tau)
+        C_market_vals = market_map[tau_key]
+        C_model_vals = model_map[tau_key]
+        sigma_t = float(sigma_map[tau_key])
 
-        for S, C_bs, C_cn in zip(S_grid, C_bs_vals, C_cn_vals):
+        for S, C_mkt, C_cn in zip(S_grid, C_market_vals, C_model_vals):
             records.append(
                 {
                     "date": t.date(),
                     "tau_yrs": tau,
                     "S": float(S),
                     "sigma": sigma_t,
-                    "C_bs": float(C_bs),
+                    "C_market": float(C_mkt),
                     "C_model": float(C_cn),
                 }
             )
 
     df = pd.DataFrame.from_records(records)
-    for col in ("S", "C_bs", "C_model", "tau_yrs", "sigma"):
+    for col in ("S", "C_market", "C_model", "tau_yrs", "sigma"):
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    return df.dropna().sort_values(["date", "S"])
+    df = df.dropna().sort_values(["date", "S"])
+    df.attrs["calibration_rms_history"] = calib_result.rms_history
+    df.attrs["calibration_success"] = calib_result.success
+    df.attrs["calibration_message"] = calib_result.message
+    df.attrs["w_market"] = w_market
+    df.attrs["w_model"] = calib_result.w_model
+    df.attrs["v_curve"] = calib_result.v_curve
+    return df
 
 
 def _build_tau_sigma_surface(S_grid, t_grid, T_date, sigma_series):
     """
     Построить узлы по tau и поверхность локальной волатильности sigma(S, tau).
+    Возвращает также вектор sigma(tau) для калибровки.
     """
     sigma_series = sigma_series.sort_index()
     if sigma_series.empty:
@@ -96,9 +108,9 @@ def _build_tau_sigma_surface(S_grid, t_grid, T_date, sigma_series):
     sigma_values = np.array([sigma for _, sigma in pairs], dtype=float)
 
     N = len(S_grid)
-    sigma_surface = np.repeat(sigma_values[:, None], N, axis=1)  # shape (len(tau_nodes), N)
+    sigma_surface = np.repeat(sigma_values[:, None], N, axis=1)
 
-    return tau_nodes, sigma_surface
+    return tau_nodes, sigma_surface, sigma_values
 
 
 def _time_to_maturity(T_date, t) -> float:
@@ -114,3 +126,16 @@ def _deduplicate_tau_sigma(pairs, tol=1e-10):
         else:
             dedup.append((tau, sigma))
     return dedup
+
+
+def _build_market_surface(S_grid, tau_nodes, sigma_curve, r, K):
+    """
+    Сгенерировать «рыночную» поверхность C_market из BS цен.
+    """
+
+    C_market = []
+    for tau, sigma in zip(tau_nodes, sigma_curve):
+        sigma = max(float(sigma), 1e-8)
+        C_vals = call_black_scholes(S_grid, K=K, r=r, sigma=sigma, tau=float(tau))
+        C_market.append(C_vals)
+    return np.asarray(C_market, dtype=float)
