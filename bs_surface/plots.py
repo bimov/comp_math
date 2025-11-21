@@ -76,6 +76,27 @@ def plot_heatmap(surface: pd.DataFrame, out_path: str) -> None:
     plt.close()
 
 
+def plot_rms(surface: pd.DataFrame, out_path: str) -> None:
+    """Построить график RMS ошибки между C_model и C_market по датам."""
+
+    if not {"C_model", "C_market"}.issubset(surface.columns):
+        raise KeyError("Surface must contain C_model и C_market для RMS графика")
+
+    rms_by_date = surface.groupby("date").apply(
+        lambda df: float(np.sqrt(np.mean((df["C_model"] - df["C_market"]) ** 2)))
+    )
+
+    plt.figure(figsize=(8, 4))
+    rms_by_date.plot(marker="o")
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.xlabel("Дата")
+    plt.ylabel("RMS(C_model - C_market)")
+    plt.title("Качество калибровки волатильности")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=160)
+    plt.close()
+
+
 def _choose_value_column(surface: pd.DataFrame) -> str:
     for col in ("C_model", "C_bs", "C"):
         if col in surface.columns:
