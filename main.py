@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import os
 from bs_surface.data_io import ensure_out_dir, download_quotes, add_returns_and_vol, choose_strike
 from bs_surface.grid import build_grids, build_surface
-from bs_surface.plots import plot_price_series, plot_surface_3d, plot_heatmap
+from bs_surface.plots import plot_price_series, plot_surface_3d, plot_heatmap, plot_rms
 
 
 @dataclass
